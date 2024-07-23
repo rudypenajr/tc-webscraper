@@ -46,8 +46,8 @@ func main() {
 	// if err != nil {
     // 	fmt.Println("cannot initalize client", err)
   	// }
-	username := os.Getenv("MONGO_ATLAS_USERNAME")
-    password := os.Getenv("MONGO_ATLAS_PASSWORD")
+	// username := os.Getenv("MONGO_ATLAS_USERNAME")
+    // password := os.Getenv("MONGO_ATLAS_PASSWORD")
 	mongoURI := os.Getenv("MONOG_URI")
     clientOptions := options.Client().ApplyURI(mongoURI)
 
