@@ -48,9 +48,7 @@ func main() {
   	// }
 	username := os.Getenv("MONGO_ATLAS_USERNAME")
     password := os.Getenv("MONGO_ATLAS_PASSWORD")
-	// mongodb+srv://rudypenajr:<password>@cluster0.6ay7bhy.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
-	mongoURI := fmt.Sprintf("mongodb+srv://%s:%s@cluster0.6ay7bhy.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0", username, password)
-	fmt.Printf(`values: %s, %s \n %s`, username, password, mongoURI)
+	mongoURI := os.Getenv("MONOG_URI")
     clientOptions := options.Client().ApplyURI(mongoURI)
 
     // Connect to MongoDB
