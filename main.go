@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,11 +17,13 @@ import (
 	// "github.com/supabase-community/postgrest-go"
 
 	"github.com/PuerkitoBio/goquery"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Episode struct {
+	ID                    	string   		`bson:"_id,omitempty"` // Unique identifier
 	Url     				string 			`bson:"url,omitempty"`
 	Title					string			`bson:"title,omitempty"`
 	EpisodeNo 				string			`bson:"episode_no,omitempty"`
@@ -27,7 +31,11 @@ type Episode struct {
 	Guests 					[]string		`bson:"guests,omitempty"`
 	Top5ComparisonYear 		string			`bson:"top_5_comparison_year,omitempty"`
 	Notes  					string			`bson:"notes,omitempty"`
+}
 
+type MyDocument struct {
+    UniqueField string `bson:"uniqueField"`
+    // Other fields
 }
 
 func main() {
@@ -102,6 +110,7 @@ func main() {
 
             // Create a new episode struct and add it to the slice
             episode := Episode{
+				ID: generateID(url, title, episodeNo),
                 Title:       title,
 				Url: url,
 				EpisodeNo: episodeNo,
@@ -126,19 +135,46 @@ func main() {
 	updateGuests(&episodes)
 	 
 	// Convert []Episode to []interface{}
-    var interfaceSlice []interface{}
-    for _, e := range episodes {
-        interfaceSlice = append(interfaceSlice, e)
-    }
+    // var interfaceSlice []interface{}
+    // for _, e := range episodes {
+    //     interfaceSlice = append(interfaceSlice, e)
+    // }
 
-    insertResult, err := collection.InsertMany(context.TODO(), interfaceSlice)
-    if err != nil {
-        log.Fatal(err)
-    }
+    // insertResult, err := collection.InsertMany(context.TODO(), interfaceSlice)
+    // if err != nil {
+    //     log.Fatal(err)
+    // }
 
-    fmt.Printf("Inserted documents with IDs: %v\n", insertResult.InsertedIDs)
+    // fmt.Printf("Inserted documents with IDs: %v\n", insertResult.InsertedIDs)
 	
+	var interfaceSlice []interface{}
+	for _, e := range episodes {
+		// Assuming e has a field called UniqueField that can be used to identify uniqueness
+		filter := bson.M{"_id": e.ID}
 
+		// Check if a document with the same unique field already exists
+		count, err := collection.CountDocuments(context.TODO(), filter)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Only add the episode to the interfaceSlice if it doesn't already exist
+		if count == 0 {
+			interfaceSlice = append(interfaceSlice, e)
+		}
+	}
+
+	// Insert only the new (unique) episodes into the collection
+	if len(interfaceSlice) > 0 {
+		insertResult, err := collection.InsertMany(context.TODO(), interfaceSlice)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("Inserted documents with IDs: %v\n", insertResult.InsertedIDs)
+	} else {
+		fmt.Println("No new unique episodes to insert.")
+	}
 
 	// 
 	// Convert `links`` to JSON
@@ -237,4 +273,16 @@ func updateGuests(episodes *[]Episode) {
 			counter += 1
 		})
 	})
+}
+
+
+func generateID(url, title, episodeNo string) string {
+	// Create a unique key based on URL, Title, and EpisodeNo
+	data := fmt.Sprintf("%s-%s-%s", url, title, episodeNo)
+
+	// Create an MD5 hash of the data
+	hash := md5.Sum([]byte(data))
+
+	// Convert the hash to a hex string
+	return hex.EncodeToString(hash[:])
 }
