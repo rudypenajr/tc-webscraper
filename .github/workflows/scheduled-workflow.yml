@@ -6,7 +6,8 @@ on:
     # 0 0 means the job runs at midnight.
     # */14 in the day-of-month field specifies every 14 days.
     # * * for months and days of the week means it applies to all.
-    - cron: "0 0 */14 * *"
+    - cron: "*/1 * * * *"
+    # - cron: "0 0 */14 * *"
 
 jobs:
   run-go-script:
