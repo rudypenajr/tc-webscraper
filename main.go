@@ -78,8 +78,10 @@ func main() {
     fmt.Println("Connected to MongoDB!")
 
 	// Get a handle for your collection
-    collection := client.Database("tc-webscraper").Collection("episodes")
-
+	var dbName = os.Getenv("MONGO_DB_NAME")
+    var collectionName = os.Getenv("MONGO_COLLECTION")
+    // collection := client.Database("tc-webscraper").Collection("episodes")
+	collection := client.Database(dbName).Collection(collectionName)
 
 	// 
 	// Initialize Colly Collector
