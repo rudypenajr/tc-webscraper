@@ -1,9 +1,7 @@
-name: Run Scheduled Job
+name: Run Go Script on Schedule
 
 on:
   schedule:
-    # Cron syntax: 'minute hour day-of-month month day-of-week'
-    # - cron: '0 0 * * 0' # Runs every Sunday at midnight UTC
     # Explanation:
     # 0 0 means the job runs at midnight.
     # */14 in the day-of-month field specifies every 14 days.
@@ -11,12 +9,24 @@ on:
     - cron: "0 0 */14 * *"
 
 jobs:
-  example-job:
+  run-go-script:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout Repository
-        uses: actions/checkout@v3 # Checks out the code
+        uses: actions/checkout@v3
 
-      - name: Run a Script
-        run: echo "Hello! This is a scheduled task running on $(date)."
+      # Step 2: Set up Go environment
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.20" # Specify the Go version you are using
+
+      # Step 3: Install dependencies (optional, if your script needs them)
+      - name: Install Dependencies
+        run: go mod tidy
+
+      # Step 4: Run the Go script
+      - name: Run Go Script
+        run: go run main.go
