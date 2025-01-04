@@ -27,7 +27,7 @@ jobs:
 
       # Step 4: Set environment variables (if needed)
       - name: Set Environment Variables
-        run: echo "MONOG_URI=${{ secrets.MONOG_URI }}" >> $GITHUB_ENV
+        run: echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> $GITHUB_ENV
 
       # Step 5: Debug current directory (optional)
       - name: List Files
