@@ -33,6 +33,12 @@ jobs:
       - name: List Files
         run: ls -la
 
+      # Step 6: Print the MONOG_URI to debug if it's being set correctly
+      - name: Print MONGO_URI
+        run: echo "MONGO_URI=$MONGO_URI"
+
       # Step 6: Run the Go script
       - name: Run Go Script
         run: go run main.go
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }} # Ensure MONGO_URI is passed as environment variable
