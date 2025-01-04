@@ -2,12 +2,9 @@ name: Run Go Script on Schedule
 
 on:
   schedule:
-    # Explanation:
-    # 0 0 means the job runs at midnight.
-    # */14 in the day-of-month field specifies every 14 days.
-    # * * for months and days of the week means it applies to all.
-    - cron: "*/1 * * * *"
+    - cron: "*/1 * * * *" # Run every minute for testing
     # - cron: "0 0 */14 * *"
+  workflow_dispatch:
 
 jobs:
   run-go-script:
@@ -22,12 +19,20 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.20" # Specify the Go version you are using
+          go-version: "1.20"
 
-      # Step 3: Install dependencies (optional, if your script needs them)
+      # Step 3: Install dependencies (optional)
       - name: Install Dependencies
         run: go mod tidy
 
-      # Step 4: Run the Go script
+      # Step 4: Set environment variables (if needed)
+      - name: Set Environment Variables
+        run: echo "MONOG_URI=${{ secrets.MONOG_URI }}" >> $GITHUB_ENV
+
+      # Step 5: Debug current directory (optional)
+      - name: List Files
+        run: ls -la
+
+      # Step 6: Run the Go script
       - name: Run Go Script
         run: go run main.go
