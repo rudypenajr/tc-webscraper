@@ -42,3 +42,5 @@ jobs:
         run: go run main.go
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }} # Ensure MONGO_URI is passed as environment variable
+          MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
+          MONGO_COLLECTION: ${{ secrets.MONGO_COLLECTION }}
