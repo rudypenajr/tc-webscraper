@@ -56,7 +56,7 @@ func main() {
   	// }
 	// username := os.Getenv("MONGO_ATLAS_USERNAME")
     // password := os.Getenv("MONGO_ATLAS_PASSWORD")
-	mongoURI := os.Getenv("MONOG_URI")
+	mongoURI := os.Getenv("MONGO_URI")
     clientOptions := options.Client().ApplyURI(mongoURI)
 
     // Connect to MongoDB
