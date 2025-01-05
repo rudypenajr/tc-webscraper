@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"log"
 
@@ -18,19 +19,21 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Episode struct {
-	ID                    	string   		`bson:"_id,omitempty"` // Unique identifier
-	Url     				string 			`bson:"url,omitempty"`
-	Title					string			`bson:"title,omitempty"`
-	EpisodeNo 				string			`bson:"episode_no,omitempty"`
-	Date					string			`bson:"date,omitempty"`
-	Guests 					[]string		`bson:"guests,omitempty"`
-	Top5ComparisonYear 		string			`bson:"top_5_comparison_year,omitempty"`
-	Notes  					string			`bson:"notes,omitempty"`
+	ID                    	string   			`bson:"_id,omitempty"` // Unique identifier
+	Url     				string 				`bson:"url,omitempty"`
+	Title					string				`bson:"title,omitempty"`
+	EpisodeNo 				string				`bson:"episode_no,omitempty"`
+	Date					string				`bson:"date,omitempty"`
+	Timestamp				primitive.DateTime	`bson:"timestamp"`  // ISO 8601 timestamp
+	Guests 					[]string			`bson:"guests,omitempty"`
+	Top5ComparisonYear 		string				`bson:"top_5_comparison_year,omitempty"`
+	Notes  					string				`bson:"notes,omitempty"`
 }
 
 type MyDocument struct {
@@ -108,6 +111,13 @@ func main() {
 
 			top5ComparisonYear := row.ChildText("td:nth-child(5)")
 			notes := row.ChildText("td:nth-child(6)")
+			
+			timestamp, err := parseAndSaveDate(date)
+    		if err != nil {
+        		// fmt.Println("Error parsing date:", err)
+				fmt.Printf("Error %s on date: %v\n", episodeNo, err)
+        		return
+    		}
             
 
             // Create a new episode struct and add it to the slice
@@ -120,6 +130,7 @@ func main() {
 				// Guests: guests,
 				Top5ComparisonYear: top5ComparisonYear,
 				Notes: notes,
+				Timestamp: timestamp,
             }
             episodes = append(episodes, episode)
         })
@@ -287,4 +298,15 @@ func generateID(url, title, episodeNo string) string {
 
 	// Convert the hash to a hex string
 	return hex.EncodeToString(hash[:])
+}
+
+func parseAndSaveDate(dateStr string) (primitive.DateTime, error) {
+    // Parse string to time.Time
+    t, err := time.Parse("January 2, 2006", dateStr)
+    if err != nil {
+        return 0, err // Return 0 as primitive.DateTime on error
+    }
+
+    // Convert to MongoDB's DateTime
+    return primitive.NewDateTimeFromTime(t), nil
 }
