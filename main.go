@@ -175,7 +175,30 @@ func main() {
 
 		// Only add the episode to the interfaceSlice if it doesn't already exist
 		if count == 0 {
-			interfaceSlice = append(interfaceSlice, e)
+			// interfaceSlice = append(interfaceSlice, e)
+		
+			// Generate vector embedding for the episode
+			embedding, err := generateEmbedding(openaiClient, e)
+			if err != nil {
+				fmt.Printf("❌ Failed to generate embedding for '%s': %v\n", e.Title, err)
+				continue
+			}
+
+			// Add the embedding to the episode before inserting it
+			eMap := bson.M{
+				"_id":                    e.ID,
+				"url":                    e.Url,
+				"title":                  e.Title,
+				"episode_no":             e.EpisodeNo,
+				"date":                   e.Date,
+				"timestamp":              e.Timestamp,
+				"guests":                 e.Guests,
+				"top_5_comparison_year":  e.Top5ComparisonYear,
+				"notes":                  e.Notes,
+				"embedding":              embedding, // New embedding field
+			}
+
+			interfaceSlice = append(interfaceSlice, eMap)
 		}
 	}
 
@@ -186,7 +209,8 @@ func main() {
 			log.Fatal(err)
 		}
 
-		fmt.Printf("Inserted documents with IDs: %v\n", insertResult.InsertedIDs)
+		// fmt.Printf("Inserted documents with IDs: %v\n", insertResult.InsertedIDs)
+		fmt.Printf("✅ Inserted %d new episodes with embeddings.\n", len(insertResult.InsertedIDs))
 	} else {
 		fmt.Println("No new unique episodes to insert.")
 	}
