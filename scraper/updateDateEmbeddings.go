@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
 	"go.mongodb.org/mongo-driver/bson"
@@ -17,15 +18,15 @@ import (
 )
 
 type Episode struct {
-	ID                    	string   			`bson:"_id,omitempty"` // Unique identifier
-	Url     				string 				`bson:"url,omitempty"`
-	Title					string				`bson:"title,omitempty"`
-	EpisodeNo 				string				`bson:"episode_no,omitempty"`
-	Date					string				`bson:"date,omitempty"`
-	Timestamp				primitive.DateTime	`bson:"timestamp"`  // ISO 8601 timestamp
-	Guests 					[]string			`bson:"guests,omitempty"`
-	Top5ComparisonYear 		string				`bson:"top_5_comparison_year,omitempty"`
-	Notes  					string				`bson:"notes,omitempty"`
+	ID                 string              `bson:"_id,omitempty"` // Unique identifier
+	Url                string              `bson:"url,omitempty"`
+	Title              string              `bson:"title,omitempty"`
+	EpisodeNo          string              `bson:"episode_no,omitempty"`
+	Date               string              `bson:"date,omitempty"`
+	Timestamp          primitive.DateTime  `bson:"timestamp"` // ISO 8601 timestamp
+	Guests             []string            `bson:"guests,omitempty"`
+	Top5ComparisonYear string              `bson:"top_5_comparison_year,omitempty"`
+	Notes              string              `bson:"notes,omitempty"`
 	Embedding          []float32           `bson:"embedding,omitempty"`
 }
 
@@ -73,33 +74,46 @@ func main() {
 			log.Fatal(err)
 		}
 
-		// Generate vector embedding for the episode
-		embedding, err := generateEmbedding(openaiClient, episode)
+		// Convert Date to ISO 8601 Format
+		formattedDate, err := convertDateToISO(episode.Date)
+		if err != nil {
+			fmt.Printf("⚠️ Failed to format date for '%s': %v\n", episode.Title, err)
+			formattedDate = episode.Date // Fallback to original date string
+		}
+
+		// Generate vector embedding for the episode (with formatted date)
+		embedding, err := generateEmbedding(openaiClient, episode, formattedDate)
 		if err != nil {
 			fmt.Printf("❌ Failed to generate embedding for '%s': %v\n", episode.Title, err)
 			continue
 		}
 
-		// Update MongoDB with the new embedding
+		// Update MongoDB with the new embedding & formatted date
 		filter := bson.M{"_id": episode.ID}
-		update := bson.M{"$set": bson.M{"embedding": embedding}}
+		update := bson.M{
+			"$set": bson.M{
+				"embedding": embedding,
+				"formatted_date": formattedDate, // 🔹 Store formatted date for future use
+			},
+		}
 		_, err = collection.UpdateOne(context.TODO(), filter, update)
 		if err != nil {
 			fmt.Printf("❌ Failed to update document %v: %v\n", episode.ID, err)
 			continue
 		}
 
-		fmt.Printf("✅ Updated document %v - '%s' with vector embedding\n", episode.ID, episode.Title)
+		fmt.Printf("✅ Updated document %v - '%s' with vector embedding & formatted date\n", episode.ID, episode.Title)
 	}
 }
 
-func generateEmbedding(client *openai.Client, episode Episode) ([]float32, error) {
+// 🔹 Generates Embedding with the Correctly Formatted Date
+func generateEmbedding(client *openai.Client, episode Episode, formattedDate string) ([]float32, error) {
 	// Combine relevant fields into a single text input
 	textInput := fmt.Sprintf(
-		"Title: %s. Guests: %s. Year: %s. Notes: %s",
+		"Title: %s. Guests: %s. Date: %s. Notes: %s",
 		episode.Title,
 		strings.Join(episode.Guests, ", "), // Convert guest slice to a string
-		episode.Top5ComparisonYear,
+		formattedDate,                      // Use the formatted date
 		episode.Notes,
 	)
 
@@ -114,14 +128,13 @@ func generateEmbedding(client *openai.Client, episode Episode) ([]float32, error
 	return resp.Data[0].Embedding, nil
 }
 
-// Function to generate embeddings using OpenAI API - Just Title
-// func generateEmbedding(client *openai.Client, text string) ([]float32, error) {
-// 	resp, err := client.CreateEmbeddings(context.TODO(), openai.EmbeddingRequest{
-// 		Model: openai.AdaEmbeddingV2, // Adjust model as needed
-// 		Input: []string{text},
-// 	})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return resp.Data[0].Embedding, nil
-// }
+// 🔹 Converts "November 15, 2015" → "2015-11-15"
+func convertDateToISO(dateStr string) (string, error) {
+	// Parse date from "January 2, 2006"
+	t, err := time.Parse("January 2, 2006", dateStr)
+	if err != nil {
+		return "", err // Return empty if parsing fails
+	}
+	// Convert to ISO 8601 format
+	return t.Format("2006-01-02"), nil
+}
