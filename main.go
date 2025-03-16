@@ -17,6 +17,8 @@ import (
 	// "strings"
 
 	"github.com/gocolly/colly"
+	"github.com/sashabaranov/go-openai"
+
 	// "github.com/supabase-community/postgrest-go"
 
 	"github.com/PuerkitoBio/goquery"
@@ -32,6 +34,7 @@ type Episode struct {
 	Title					string				`bson:"title,omitempty"`
 	EpisodeNo 				string				`bson:"episode_no,omitempty"`
 	Date					string				`bson:"date,omitempty"`
+	FormattedDate      		string              `bson:"formatted_date,omitempty"` // 🔹 New field
 	Timestamp				primitive.DateTime	`bson:"timestamp"`  // ISO 8601 timestamp
 	Guests 					[]string			`bson:"guests,omitempty"`
 	Top5ComparisonYear 		string				`bson:"top_5_comparison_year,omitempty"`
@@ -80,7 +83,12 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Println("Connected to MongoDB!")
+    
+	fmt.Println("Connected to MongoDB!")
+
+	// Connect to OpenAI
+	openaiKey := os.Getenv("OPENAI_API_KEY") // OpenAI API Key
+	openaiClient := openai.NewClient(openaiKey)
 
 	// Get a handle for your collection
 	var dbName = os.Getenv("MONGO_DB_NAME")
@@ -114,13 +122,25 @@ func main() {
 			top5ComparisonYear := row.ChildText("td:nth-child(5)")
 			notes := row.ChildText("td:nth-child(6)")
 			
+			// timestamp, err := parseAndSaveDate(date)
+    		// if err != nil {
+        	// 	// fmt.Println("Error parsing date:", err)
+			// 	fmt.Printf("Error %s on date: %v\n", episodeNo, err)
+        	// 	return
+    		// }
+			// Convert `date` to MongoDB Timestamp
 			timestamp, err := parseAndSaveDate(date)
-    		if err != nil {
-        		// fmt.Println("Error parsing date:", err)
-				fmt.Printf("Error %s on date: %v\n", episodeNo, err)
-        		return
-    		}
-            
+			if err != nil {
+				fmt.Printf("⚠️ Failed to parse date for %s: %v\n", episodeNo, err)
+				return
+			}
+
+			// 🔹 Convert `date` to `formatted_date`
+			formattedDate, err := convertDateToISO(date)
+			if err != nil {
+				fmt.Printf("⚠️ Failed to convert date for %s: %v\n", episodeNo, err)
+				formattedDate = date // Fallback to original
+			}
 
             // Create a new episode struct and add it to the slice
             episode := Episode{
@@ -129,6 +149,7 @@ func main() {
 				Url: url,
 				EpisodeNo: episodeNo,
 				Date: date,
+				FormattedDate:      formattedDate, // 🔹 Store `formatted_date`
 				// Guests: guests,
 				Top5ComparisonYear: top5ComparisonYear,
 				Notes: notes,
@@ -178,7 +199,7 @@ func main() {
 			// interfaceSlice = append(interfaceSlice, e)
 		
 			// Generate vector embedding for the episode
-			embedding, err := generateEmbedding(openaiClient, e)
+			embedding, err := generateEmbedding(openaiClient, e, e.FormattedDate)
 			if err != nil {
 				fmt.Printf("❌ Failed to generate embedding for '%s': %v\n", e.Title, err)
 				continue
@@ -191,6 +212,7 @@ func main() {
 				"title":                  e.Title,
 				"episode_no":             e.EpisodeNo,
 				"date":                   e.Date,
+				"formatted_date":         e.FormattedDate,  // 🔹 Store `formatted_date`
 				"timestamp":              e.Timestamp,
 				"guests":                 e.Guests,
 				"top_5_comparison_year":  e.Top5ComparisonYear,
@@ -335,4 +357,36 @@ func parseAndSaveDate(dateStr string) (primitive.DateTime, error) {
 
     // Convert to MongoDB's DateTime
     return primitive.NewDateTimeFromTime(t), nil
+}
+
+
+// 🔹 Generates Embedding with the Correctly Formatted Date
+func generateEmbedding(client *openai.Client, episode Episode, formattedDate string) ([]float32, error) {
+	// Combine relevant fields into a single text input
+	textInput := fmt.Sprintf(
+		"Title: %s. Guests: %s. Date: %s. Notes: %s",
+		episode.Title,
+		strings.Join(episode.Guests, ", "), // Convert guest slice to a string
+		formattedDate,                      // Use the formatted date
+		episode.Notes,
+	)
+
+	resp, err := client.CreateEmbeddings(context.TODO(), openai.EmbeddingRequest{
+		Model: openai.AdaEmbeddingV2, // OpenAI embedding model
+		Input: []string{textInput},   // Use combined text
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Data[0].Embedding, nil
+}
+
+// Converts "November 15, 2015" → "2015-11-15"
+func convertDateToISO(dateStr string) (string, error) {
+	t, err := time.Parse("January 2, 2006", dateStr)
+	if err != nil {
+		return "", err // Return empty if parsing fails
+	}
+	return t.Format("2006-01-02"), nil
 }
